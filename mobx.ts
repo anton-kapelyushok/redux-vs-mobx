@@ -1,3 +1,20 @@
+export class DocumentsStore {
+    @observable documents = {}
+
+    @action async fetchAllDocuments() {
+        this.fetch.allDocuments().then(this.updateAllDocuments)
+    }
+
+    @action.bound updateAllDocuments(data) {
+        const documents = data.map(toDocument)
+        documents.forEach(this.storeDocument)
+    }
+
+    storeDocument(doc) {
+        documents[id] = doc
+    }
+}
+
 export class RequirementsStore {
 
     @observable requirements = {}
@@ -14,7 +31,11 @@ export class RequirementsStore {
 export class Requirement {
     @observable id
     @observable name
-    @observable documents = null
+    @observable documentIds = []
+
+    @computed get documents() {
+        return this.documentIds.map(id => this.documentsStore[id])
+    }
 
     @action async createDocument(docDto) {
         this.fetch.addDocToReq(this.id, docDto)
@@ -27,11 +48,13 @@ export class Requirement {
     }
 
     @action.bound addDocument(doc) {
-        this.documentIds.push(doc)
+        this.documentIds.push(doc.id)
+        this.documentsStore.storeDocument(doc)
     }
 
     @action.bound updateDocuments(result) {
         this.documents = toDocuments(result)
+        this.documents.forEach(this.documentsStore.storeDocument)
     }
 }
 
@@ -70,13 +93,14 @@ export class ReqsAndDocsViewStore {
 
 export class AllDocsStore {
     @observable loadingState = 'loading'
+    @observable documentIds = []
 
     @computed get documents() {
-        return flatmap(Object.values(this.requirementsStore), req => req.documents)
+        return this.documentIds.map(id => this.documentsStore[id])
     }
 
     @action async init() {
-        await this.requirementsStore.initRequirements()
+        await this.documentsStore.fetchAllDocuments()
         runInAction(() => this.requirementsLoadingState = 'loaded')
     }
 }
