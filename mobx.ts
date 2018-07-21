@@ -27,7 +27,7 @@ export class Requirement {
     }
 
     @action.bound addDocument(doc) {
-        this.documentIds.push(doc)
+        this.documents.push(doc)
     }
 
     @action.bound updateDocuments(result) {
