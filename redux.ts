@@ -78,7 +78,7 @@ const requirementsReducer = (state = {}, action) => {
     }
 }
 
-class ViewEffect {
+class ReqsAndDocsViewEffect {
     @Effect()
     this.actions.ofType(Actions.INIT_VIEW).pipe(
         switchMap(async () => this.fetch.requirements().pipe(
