@@ -1,8 +1,9 @@
 export class RequirementsStore {
 
-    @observable requirements = {}
+    @observable requirements
 
-    @action async initRequirements() {
+    @action async initRequirementsIfNeeded() {
+        if (this.requirements) return;
         this.fetch.requirements().then(this.updateRequirements)
     }
 
@@ -45,7 +46,7 @@ export class ReqsAndDocsViewStore {
     }
 
     @action async init() {
-        await this.requirementsStore.initRequirements()
+        await this.requirementsStore.initRequirementsIfNeeded()
         runInAction(() => this.requirementsLoadingState = 'loaded')
     }
 
@@ -76,7 +77,7 @@ export class AllDocsStore {
     }
 
     @action async init() {
-        await this.requirementsStore.initRequirements()
+        await this.requirementsStore.initRequirementsIfNeeded()
         runInAction(() => this.requirementsLoadingState = 'loaded')
     }
 }
