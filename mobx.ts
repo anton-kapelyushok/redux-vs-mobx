@@ -68,4 +68,15 @@ export class ReqsAndDocsViewStore {
     }
 }
 
+export class AllDocsStore {
+    @observable loadingState = 'loading'
 
+    @computed get documents() {
+        return flatmap(Object.values(this.requirementsStore), req => req.documents)
+    }
+
+    @action async init() {
+        await this.requirementsStore.initRequirements()
+        runInAction(() => this.requirementsLoadingState = 'loaded')
+    }
+}

@@ -1,14 +1,19 @@
 const ReqsAndDocsViewActions = {
     INIT_VIEW: "",
-    REQUIREMENTS_LOADED: "",
 
     CURRENT_REQUIREMENT_CHANGED: "",
 
     DOCUMENTS_LOADED: "",
-    DOCUMENTS_LOADED_ALREADY: "",
+    DOCUMENTS_ALREADY_LOADED: "",
 
     ADD_DOCUMENT: "",
     ADD_DOCUMENT_DONE: "",
+}
+
+const RequirementsActions = {
+    REQUIREMENTS_LOADED: "",
+    REQUIREMENTS_ALREADY_LOADED: "",
+    REQUIREMENTS_ALREADY_LOADING: "",
 }
 
 const AllDocsViewActions = {
@@ -30,11 +35,12 @@ const reqsAndDocsReducer = (state = reqsAndDocsViewInitialState, action) => {
         case ReqsAndDocsViewActions.CURRENT_REQUIREMENT_CHANGED:
             return { ...state, requirementsLoadingState: 'loading', documentsLoadingState: 'loading', currentReqId: action.id }
 
-        case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:
+        case RequirementsActions.REQUIREMENTS_LOADED:        
+        case RequirementsActions.REQUIREMENTS_ALREADY_LOADED:
             return { ...state, requirementsLoadingState: 'loaded' }
 
-        case ReqsAndDocsViewActions.DOCUMENTS_LOADED_ALREADY: 
         case ReqsAndDocsViewActions.DOCUMENTS_LOADED:
+        case ReqsAndDocsViewActions.DOCUMENTS_ALREADY_LOADED: 
             return { ...state, documentsLoadingState: 'loaded' }
 
         case ReqsAndDocsViewActions.ADD_DOCUMENT:
@@ -52,7 +58,6 @@ const reqsAndDocsReducer = (state = reqsAndDocsViewInitialState, action) => {
 
 const allDocsViewInitialState = {
     loadingState: 'loading',
-    documentIds: [],
 }
 
 const allDocsViewReducer = (state = allDocsViewInitialState, action) => {
@@ -60,10 +65,10 @@ const allDocsViewReducer = (state = allDocsViewInitialState, action) => {
         case AllDocsViewActions.INIT_VIEW:
             return allDocsViewInitialState;
 
-        case AllDocsViewActions.DOCUMENTS_LOADED:
+        case RequirementsActions.REQUIREMENTS_ALREADY_LOADED:
+        case RequirementsActions.REQUIREMENTS_LOADED:
             return {
                 loadingState: 'loaded',
-                documentIds: action.data.map(d => d.id)
             }
         default:
             return state;
@@ -77,7 +82,6 @@ const documentsReducer = (state = {}, action) => {
                 ...state, 
                 action.doc,
             }
-        case AllDocsViewActions.DOCUMENTS_LOADED:
         case ReqsAndDocsViewActions.DOCUMENTS_LOADED:
             return {
                 ...state,
@@ -89,26 +93,53 @@ const documentsReducer = (state = {}, action) => {
     }
 }
 
-const requirementsReducer = (state = {}, action) => {
-    switch (action.type) {
-        case ReqsAndDocsViewActions.ADD_DOCUMENT_DONE:
-            const req = state[action.reqId]
-            return {
-                ...state,
-                reqId: { ...req, documentIds: [...documentIds, action.doc.id ]}
-            }
-        case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:
-            return toRecordMap(action.data)
-        default:
-            return state;
+const requirementsInitialState = {
+    status: 'initial',
+    requirements: {}
+}
+
+const requirementsReducer = (state = requirementsInitialState, action) => {
+    const requirements = (state = {}, action) => {
+        switch (action.type) {
+            case ReqsAndDocsViewActions.ADD_DOCUMENT_DONE:
+                const req = state[action.reqId]
+                return {
+                    ...state,
+                    reqId: { ...req, documentIds: [...documentIds, action.doc.id ]}
+                }
+            case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:
+                return toRecordMap(action.data)
+            default:
+                return state;
+        }
+    }
+
+    const status = (state = 'initial', action) => {
+        switch (action.type) {
+            case AllDocsViewActions.INIT_VIEW:
+            case ReqsAndDocsViewActions.INIT_VIEW:
+                if (state === 'initial') {
+                    return 'loading'
+                }
+                return state;
+            case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:
+                return 'loaded'
+            default:
+                return state;
+        }
+    }
+
+    return {
+        requirements: requirements(state, action),
+        status: status(state, action),
     }
 }
 
 class ReqsAndDocsViewEffect {
     @Effect()
     this.actions.ofType(ReqAndDocsViewActions.INIT_VIEW).pipe(
-        switchMap(async () => this.fetch.requirements().pipe(
-            map(r => ({ type: ReqsAndDocsViewActions.REQUIREMENTS_LOADED, data: r })))),
+        withLatestFrom(this.store)
+        switchMap(([_, store]) => fetchReqsIfNeeded(store, this.fetch)))
     )
 
     @Effect()
@@ -137,30 +168,42 @@ class ReqsAndDocsViewEffect {
 
 class AllDocsViewEffect {
     @Effect()
-    this.actions.ofType(AllDocsViewActions.INIT_VIEW).pipe(
-        switchMap(() => {
-            return this.fetch.allDocuments().pipe(
-                map(data => ({ type: AllDocsViewActions.DOCUMENTS_LOADED, data }))
-            )
-        })
+    this.actions.ofType(ReqAndDocsViewActions.INIT_VIEW).pipe(
+        withLatestFrom(this.store)
+        switchMap(([_, store]) => fetchReqsIfNeeded(store, this.fetch)))
     )
+}
+
+function fetchReqsIfNeeded(store, fetch) {
+    const status = selectRequirementsStatus(store)
+    switch (status) {
+        case 'initial':
+            return fetch.requirements().then(data => ({ type: RequirementsActions.REQUIREMENTS_LOADED, data }))
+        case 'loading':
+            return { type: RequirementsActions.REQUIREMENTS_ALREADY_LOADING }
+        case 'loaded':
+            return { type: RequirementsActions.REQUIREMENTS_ALREADY_LOADED }
+    }
 }
 
 function getDocsForReq(req: Requirement, docs: Document[]): Document[] {
     return req.documentIds.map(docId => this.documents[docId]);
 }
 
+
+class RequirementsSelectors {
+    selectRequirementsStatus = createSelector(requirementsState, x => x.status)
+    selectRequirements = createSelector(requirementsState, x => Object.values(requirementsState))
+}
+
 class ReqsAndDocsViewSelectors {
     selectCurrentReqId = createSelector(viewState, x => x.currentReqId)
-    selectCurrentReq = createSelector(requirementsState, selectCurrentReqId, (reqs, id) => reqs[id])
-    selectRequirements = createSelector(requirementsState, x => Object.values(requirementsState))
+    selectCurrentReq = createSelector(selectRequirements, selectCurrentReqId, (reqs, id) => reqs[id])
     selectCurrentDocuments = createSelector(documentsState, selectCurrentReq, (docs, req) => req.documentIds.map(id => docs[id]))
-    selectRequirementsLoading = createSelector(viewState, x => x.requirementsLoadingState)
     selectDocumentsLoading = createSelector(viewState, x => x.documentsLoadingState)
 }
 
 class AllDocsViewSelectors {
     selectLoading = createSelector(viewState, x => x.loadingState)
-    selectDocIds = createSelector(viewState, x => x.documentIds)
-    selectDocuments = createSelector(selectDocIds, documentsState, (ids, docs) => ids.map(id => docs[id]))
+    selectDocuments = createSelector(selectRequirements, documentsState, (reqs, docs) => flatMap(reqs, req => req.documentIds.map(id => doc[id])))
 }
