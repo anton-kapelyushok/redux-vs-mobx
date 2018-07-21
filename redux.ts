@@ -17,6 +17,7 @@ const RequirementsActions = {
 
 const AllDocsViewActions = {
     INIT_VIEW: "",
+    REQUIREMENTS_LOADED: "",
     DOCUMENTS_LOADED: "",
 }
 
@@ -167,13 +168,23 @@ class ReqsAndDocsViewEffect {
 
 class AllDocsViewEffect {
     @Effect()
-    this.actions.ofType(ReqAndDocsViewActions.INIT_VIEW).pipe(
+    this.actions.ofType(AllDocsViewActions.INIT_VIEW).pipe(
         withLatestFrom(this.store)
         switchMap(([_, store]) => {
-            await fetchReqsIfNeeded(store, this.fetch)
-            return store
+            const updateAction = await fetchReqsIfNeeded(store, this.fetch)
+            // :((((
+            // we need to dispatch the action from above, but don't want the second effect to be triggered on 
+            // every requirements loaded action, just from this one. thus, this action
+            // )))):
+            return [updateAction, { type: AllDocsViewActions.REQUIREMENTS_LOADED }]
         }),
-        switchMap(store => {
+        flatMap(i => i)
+    )
+
+    @Effect()
+    this.actions.ofType(AllDocsViewActions.REQUIREMENTS_LOADED).pipe(
+        withLatestFrom(this.store),
+        switchMap((_, store) => {
             const requirements = selectRequirements(store)
             const fetchPromises = requirements
                 .filter(req => needsDocumentsFetching(store, req))
