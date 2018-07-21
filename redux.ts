@@ -11,6 +11,11 @@ const ReqsAndDocsViewActions = {
     ADD_DOCUMENT_DONE: "",
 }
 
+const AllDocsViewActions = {
+    INIT_VIEW: "",
+    DOCUMENTS_LOADED: "",
+}
+
 const reqsAndDocsViewInitialState = {
     currentReqId = null,
     requirementsLoadingState: 'loading',
@@ -45,6 +50,26 @@ const reqsAndDocsReducer = (state = reqsAndDocsViewInitialState, action) => {
     }
 }
 
+const allDocsViewInitialState = {
+    loadingState: 'loading',
+    documentIds: [],
+}
+
+const allDocsViewReducer = (state = allDocsViewInitialState, action) => {
+    switch (action.type) {
+        case AllDocsViewActions.INIT_VIEW:
+            return allDocsViewInitialState;
+
+        case AllDocsViewActions.DOCUMENTS_LOADED:
+            return {
+                loadingState: 'loaded',
+                documentIds: action.data.map(d => d.id)
+            }
+        default:
+            return state;
+    }
+}
+
 const documentsReducer = (state = {}, action) => {
     switch (action.type) {
         case ReqsAndDocsViewActions.ADD_DOCUMENT_DONE:
@@ -52,6 +77,7 @@ const documentsReducer = (state = {}, action) => {
                 ...state, 
                 action.doc,
             }
+        case AllDocsViewActions.DOCUMENTS_LOADED:
         case ReqsAndDocsViewActions.DOCUMENTS_LOADED:
             return {
                 ...state,
@@ -80,13 +106,13 @@ const requirementsReducer = (state = {}, action) => {
 
 class ReqsAndDocsViewEffect {
     @Effect()
-    this.actions.ofType(Actions.INIT_VIEW).pipe(
+    this.actions.ofType(ReqAndDocsViewActions.INIT_VIEW).pipe(
         switchMap(async () => this.fetch.requirements().pipe(
             map(r => ({ type: ReqsAndDocsViewActions.REQUIREMENTS_LOADED, data: r })))),
     )
 
     @Effect()
-    this.actions.ofType(CURRENT_REQUIREMENT_CHANGED).pipe(
+    this.actions.ofType(ReqAndDocsViewActions.CURRENT_REQUIREMENT_CHANGED).pipe(
         withLatestFrom(this.store),
         switchMap(([reqId, store]) => {
             const requirement = selectCurrentReq(store)
@@ -99,12 +125,23 @@ class ReqsAndDocsViewEffect {
     )
 
     @Effect()
-    this.actions.ofType(ADD_DOCUMENT).pipe(
+    this.actions.ofType(ReqAndDocsViewActions.ADD_DOCUMENT).pipe(
         withLatestFrom(this.store),
         switchMap(([docDto, store] => {
             const requirement = selectCurrentReq(store)
             return this.fetch.addDocToReq(req.id, docDto).pipe(
                 map(doc => ({ type: ReqsAndDocsViewActions.ADD_DOCUMENT_DONE, reqId, doc }})))
+        })
+    )
+}
+
+class AllDocsViewEffect {
+    @Effect()
+    this.actions.ofType(AllDocsViewActions.INIT_VIEW).pipe(
+        switchMap(() => {
+            return this.fetch.allDocuments().pipe(
+                map(data => ({ type: AllDocsViewActions.DOCUMENTS_LOADED, data }))
+            )
         })
     )
 }
@@ -120,4 +157,10 @@ class ReqsAndDocsViewSelectors {
     selectCurrentDocuments = createSelector(documentsState, selectCurrentReq, (docs, req) => req.documentIds.map(id => docs[id]))
     selectRequirementsLoading = createSelector(viewState, x => x.requirementsLoadingState)
     selectDocumentsLoading = createSelector(viewState, x => x.documentsLoadingState)
+}
+
+class AllDocsViewSelectors {
+    selectLoading = createSelector(viewState, x => x.loadingState)
+    selectDocIds = createSelector(viewState, x => x.documentIds)
+    selectDocuments = createSelector(selectDocIds, documentsState, (ids, docs) => ids.map(id => docs[id]))
 }
