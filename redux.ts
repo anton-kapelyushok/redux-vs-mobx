@@ -1,4 +1,4 @@
-const ReqsAndDocsViewActions = {
+const ReqsAndDocsActions = {
     INIT_VIEW: "",
     REQUIREMENTS_LOADED: "",
 
@@ -17,25 +17,25 @@ const reqsAndDocsViewInitialState = {
     documentsLoadingState: 'loading',
 }
 
-const reqsAndDocsViewReducer = (state = reqsAndDocsViewInitialState, action) => {
+const reqsAndDocsReducer = (state = reqsAndDocsViewInitialState, action) => {
     switch (action.type) {
-        case ReqsAndDocsViewActions.INIT_VIEW:
+        case ReqsAndDocsActions.INIT_VIEW:
             return reqsAndDocsViewInitialState;
 
-        case ReqsAndDocsViewActions.CURRENT_REQUIREMENT_CHANGED:
+        case ReqsAndDocsActions.CURRENT_REQUIREMENT_CHANGED:
             return { ...state, requirementsLoadingState: 'loading', documentsLoadingState: 'loading', currentReqId: action.id }
 
-        case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:
+        case ReqsAndDocsActions.REQUIREMENTS_LOADED:
             return { ...state, requirementsLoadingState: 'loaded' }
 
-        case ReqsAndDocsViewActions.DOCUMENTS_LOADED_ALREADY: 
-        case ReqsAndDocsViewActions.DOCUMENTS_LOADED:
+        case ReqsAndDocsActions.DOCUMENTS_LOADED_ALREADY: 
+        case ReqsAndDocsActions.DOCUMENTS_LOADED:
             return { ...state, documentsLoadingState: 'loaded' }
 
-        case ReqsAndDocsViewActions.ADD_DOCUMENT:
+        case ReqsAndDocsActions.ADD_DOCUMENT:
             return { ...state, documentsLoadingState: 'loading' }
 
-        case ReqsAndDocsViewActions.ADD_DOCUMENT_DONE:
+        case ReqsAndDocsActions.ADD_DOCUMENT_DONE:
             if (action.reqId === state.currentReqId) {
                 return { ...state, documentsLoadingState: 'loaded'}
             }
@@ -47,12 +47,12 @@ const reqsAndDocsViewReducer = (state = reqsAndDocsViewInitialState, action) => 
 
 const documentsReducer = (state = {}, action) => {
     switch (action.type) {
-        case ReqsAndDocsViewActions.ADD_DOCUMENT_DONE:
+        case ReqsAndDocsActions.ADD_DOCUMENT_DONE:
             return {
                 ...state, 
                 action.doc,
             }
-        case ReqsAndDocsViewActions.DOCUMENTS_LOADED:
+        case ReqsAndDocsActions.DOCUMENTS_LOADED:
             return {
                 ...state,
                 toRecordMap(action.data)
@@ -65,13 +65,13 @@ const documentsReducer = (state = {}, action) => {
 
 const requirementsReducer = (state = {}, action) => {
     switch (action.type) {
-        case ReqsAndDocsViewActions.ADD_DOCUMENT_DONE:
+        case ReqsAndDocsActions.ADD_DOCUMENT_DONE:
             const req = state[action.reqId]
             return {
                 ...state,
                 reqId: { ...req, documentIds: [...documentIds, action.doc.id ]}
             }
-        case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:
+        case ReqsAndDocsActions.REQUIREMENTS_LOADED:
             return toRecordMap(action.data)
         default:
             return state;
@@ -82,7 +82,7 @@ class ViewEffect {
     @Effect()
     this.actions.ofType(Actions.INIT_VIEW).pipe(
         switchMap(async () => this.fetch.requirements().pipe(
-            map(r => ({ type: ReqsAndDocsViewActions.REQUIREMENTS_LOADED, data: r })))),
+            map(r => ({ type: ReqsAndDocsActions.REQUIREMENTS_LOADED, data: r })))),
     )
 
     @Effect()
@@ -92,9 +92,9 @@ class ViewEffect {
             const requirement = selectCurrentReq(store)
             const documents = getDocsForReq(req, selectDocuments(store))
             const needsFetching = documents.map(d => !!d).indexOf(false) >= 0;
-            if (!needsFetching) return ObservableArray.of({ type: ReqsAndDocsViewActions.DOCUMENTS_LOADED_ALREADY })
+            if (!needsFetching) return ObservableArray.of({ type: ReqsAndDocsActions.DOCUMENTS_LOADED_ALREADY })
             return this.fetch.documents(reqId).pipe(
-                map(data => ({ type: ReqsAndDocsViewActions.DOCUMENTS_LOADED, reqId, data })))
+                map(data => ({ type: ReqsAndDocsActions.DOCUMENTS_LOADED, reqId, data })))
         })
     )
 
@@ -104,7 +104,7 @@ class ViewEffect {
         switchMap(([docDto, store] => {
             const requirement = selectCurrentReq(store)
             return this.fetch.addDocToReq(req.id, docDto).pipe(
-                map(doc => ({ type: ReqsAndDocsViewActions.ADD_DOCUMENT_DONE, reqId, doc }})))
+                map(doc => ({ type: ReqsAndDocsActions.ADD_DOCUMENT_DONE, reqId, doc }})))
         })
     )
 }
