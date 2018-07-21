@@ -78,6 +78,9 @@ export class AllDocsStore {
 
     @action async init() {
         await this.requirementsStore.initRequirementsIfNeeded()
+        const reqs = Object.values(this.requirementsStore)
+        const promises = reqs.map(req => req.fetchDocumentsIfNeeded())
+        await Promise.all(promises)
         runInAction(() => this.requirementsLoadingState = 'loaded')
     }
 }

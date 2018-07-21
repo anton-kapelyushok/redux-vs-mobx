@@ -4,7 +4,6 @@ const ReqsAndDocsViewActions = {
     CURRENT_REQUIREMENT_CHANGED: "",
 
     DOCUMENTS_LOADED: "",
-    DOCUMENTS_ALREADY_LOADED: "",
 
     ADD_DOCUMENT: "",
     ADD_DOCUMENT_DONE: "",
@@ -39,6 +38,7 @@ const reqsAndDocsReducer = (state = reqsAndDocsViewInitialState, action) => {
         case RequirementsActions.REQUIREMENTS_ALREADY_LOADED:
             return { ...state, requirementsLoadingState: 'loaded' }
 
+        case AllDocsViewActions.DOCUMENTS_LOADED:
         case ReqsAndDocsViewActions.DOCUMENTS_LOADED:
         case ReqsAndDocsViewActions.DOCUMENTS_ALREADY_LOADED: 
             return { ...state, documentsLoadingState: 'loaded' }
@@ -65,8 +65,7 @@ const allDocsViewReducer = (state = allDocsViewInitialState, action) => {
         case AllDocsViewActions.INIT_VIEW:
             return allDocsViewInitialState;
 
-        case RequirementsActions.REQUIREMENTS_ALREADY_LOADED:
-        case RequirementsActions.REQUIREMENTS_LOADED:
+        case AllDocsViewActions.DOCUMENTS_LOADED:
             return {
                 loadingState: 'loaded',
             }
@@ -148,8 +147,8 @@ class ReqsAndDocsViewEffect {
         switchMap(([reqId, store]) => {
             const requirement = selectCurrentReq(store)
             const documents = getDocsForReq(req, selectDocuments(store))
-            const needsFetching = documents.map(d => !!d).indexOf(false) >= 0;
-            if (!needsFetching) return ObservableArray.of({ type: ReqsAndDocsViewActions.DOCUMENTS_LOADED_ALREADY })
+            const needsFetching = needsDocumentsFetching(store, req)
+            if (!needsFetching) return Observable.of({ type: ReqsAndDocsViewActions.DOCUMENTS_LOADED, data: [] })
             return this.fetch.documents(reqId).pipe(
                 map(data => ({ type: ReqsAndDocsViewActions.DOCUMENTS_LOADED, reqId, data })))
         })
@@ -170,7 +169,20 @@ class AllDocsViewEffect {
     @Effect()
     this.actions.ofType(ReqAndDocsViewActions.INIT_VIEW).pipe(
         withLatestFrom(this.store)
-        switchMap(([_, store]) => fetchReqsIfNeeded(store, this.fetch)))
+        switchMap(([_, store]) => {
+            await fetchReqsIfNeeded(store, this.fetch)
+            return store
+        }),
+        switchMap(store => {
+            const requirements = selectRequirements(store)
+            const fetchPromises = requirements
+                .filter(req => needsDocumentsFetching(store, req))
+                .map(req => this.fetch.documents(req.id))
+
+            const results = await Promise.all(fetchPromises)
+            const documents = flatMap(results, i => i)
+            return { type: AllDocsViewActions.DOCUMENTS_LOADED, data: documents }
+        }),
     )
 }
 
@@ -190,6 +202,10 @@ function getDocsForReq(req: Requirement, docs: Document[]): Document[] {
     return req.documentIds.map(docId => this.documents[docId]);
 }
 
+function needsDocumentsFetching(store, req) {
+    const documents = getDocsForReq(req, selectDocuments(store))
+    return documents.map(d => !!d).indexOf(false) >= 0;
+}
 
 class RequirementsSelectors {
     selectRequirementsStatus = createSelector(requirementsState, x => x.status)
@@ -205,5 +221,6 @@ class ReqsAndDocsViewSelectors {
 
 class AllDocsViewSelectors {
     selectLoading = createSelector(viewState, x => x.loadingState)
-    selectDocuments = createSelector(selectRequirements, documentsState, (reqs, docs) => flatMap(reqs, req => req.documentIds.map(id => doc[id])))
+    selectDocuments = createSelector(selectRequirements, documentsState, 
+        (reqs, docs) => flatMap(reqs, req => req.documentIds.map(id => doc[id])))
 }
