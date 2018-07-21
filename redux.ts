@@ -39,7 +39,6 @@ const reqsAndDocsReducer = (state = reqsAndDocsViewInitialState, action) => {
         case RequirementsActions.REQUIREMENTS_ALREADY_LOADED:
             return { ...state, requirementsLoadingState: 'loaded' }
 
-        case AllDocsViewActions.DOCUMENTS_LOADED:
         case ReqsAndDocsViewActions.DOCUMENTS_LOADED:
         case ReqsAndDocsViewActions.DOCUMENTS_ALREADY_LOADED: 
             return { ...state, documentsLoadingState: 'loaded' }
