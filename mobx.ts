@@ -35,7 +35,7 @@ export class Requirement {
     }
 }
 
-export class RequirementsAndDocumentsViewStore {
+export class ViewStore {
     @observable currentReq = null
     @observable requirementsLoadingState = 'loading'
     @observable documentsLoadingState = 'loading'
@@ -68,6 +68,3 @@ export class RequirementsAndDocumentsViewStore {
     }
 }
 
-export class AllDocumentsViewStore {
-
-}

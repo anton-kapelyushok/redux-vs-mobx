@@ -113,9 +113,11 @@ function getDocsForReq(req: Requirement, docs: Document[]): Document[] {
     return req.documentIds.map(docId => this.documents[docId]);
 }
 
-const selectCurrentReqId = createSelector(viewState, x => x.currentReqId)
-const selectCurrentReq = createSelector(requirementsState, selectCurrentReqId, (reqs, id) => reqs[id])
-const selectRequirements = createSelector(requirementsState, x => Object.values(requirementsState))
-const selectCurrentDocuments = createSelector(documentsState, selectCurrentReq, (docs, req) => req.documentIds.map(id => docs[id]))
-const selectRequirementsLoading = createSelector(viewState, x => x.requirementsLoadingState)
-const selectDocumentsLoading = createSelector(viewState, x => x.documentsLoadingState)
+class ViewSelectors {
+    selectCurrentReqId = createSelector(viewState, x => x.currentReqId)
+    selectCurrentReq = createSelector(requirementsState, selectCurrentReqId, (reqs, id) => reqs[id])
+    selectRequirements = createSelector(requirementsState, x => Object.values(requirementsState))
+    selectCurrentDocuments = createSelector(documentsState, selectCurrentReq, (docs, req) => req.documentIds.map(id => docs[id]))
+    selectRequirementsLoading = createSelector(viewState, x => x.requirementsLoadingState)
+    selectDocumentsLoading = createSelector(viewState, x => x.documentsLoadingState)
+}
