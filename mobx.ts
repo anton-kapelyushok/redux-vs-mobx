@@ -35,10 +35,14 @@ export class Requirement {
     }
 }
 
-export class ViewStore {
+export class ReqsAndDocsViewStore {
     @observable currentReq = null
     @observable requirementsLoadingState = 'loading'
     @observable documentsLoadingState = 'loading'
+
+    @computed get requirements() {
+        return Object.values(this.requirementsStore)
+    }
 
     @action async init() {
         await this.requirementsStore.initRequirements()
@@ -63,3 +67,5 @@ export class ViewStore {
         }
     }
 }
+
+
