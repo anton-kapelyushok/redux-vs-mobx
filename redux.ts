@@ -9,15 +9,13 @@ const ReqsAndDocsViewActions = {
     ADD_DOCUMENT_DONE: "",
 }
 
-const RequirementsActions = {
+const AllDocsViewActions = {
+    INIT_VIEW: "",
+
     REQUIREMENTS_LOADED: "",
     REQUIREMENTS_ALREADY_LOADED: "",
     REQUIREMENTS_ALREADY_LOADING: "",
-}
 
-const AllDocsViewActions = {
-    INIT_VIEW: "",
-    REQUIREMENTS_LOADED: "",
     DOCUMENTS_LOADED: "",
 }
 
@@ -35,8 +33,8 @@ const reqsAndDocsReducer = (state = reqsAndDocsViewInitialState, action) => {
         case ReqsAndDocsViewActions.CURRENT_REQUIREMENT_CHANGED:
             return { ...state, requirementsLoadingState: 'loading', documentsLoadingState: 'loading', currentReqId: action.id }
 
-        case RequirementsActions.REQUIREMENTS_LOADED:        
-        case RequirementsActions.REQUIREMENTS_ALREADY_LOADED:
+        case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:        
+        case ReqsAndDocsViewActions.REQUIREMENTS_ALREADY_LOADED:
             return { ...state, requirementsLoadingState: 'loaded' }
 
         case ReqsAndDocsViewActions.DOCUMENTS_LOADED:
@@ -106,6 +104,7 @@ const requirementsReducer = (state = requirementsInitialState, action) => {
                     ...state,
                     reqId: { ...req, documentIds: [...documentIds, action.doc.id ]}
                 }
+            case AllDocsViewActions.REQUIREMENTS_LOADED:
             case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:
                 return toRecordMap(action.data)
             default:
@@ -121,6 +120,7 @@ const requirementsReducer = (state = requirementsInitialState, action) => {
                     return 'loading'
                 }
                 return state;
+            case AllDocsViewActions.REQUIREMENTS_LOADED:
             case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:
                 return 'loaded'
             default:
@@ -138,7 +138,18 @@ class ReqsAndDocsViewEffect {
     @Effect()
     this.actions.ofType(ReqAndDocsViewActions.INIT_VIEW).pipe(
         withLatestFrom(this.store)
-        switchMap(([_, store]) => fetchReqsIfNeeded(store, this.fetch)))
+        switchMap(([_, store]) => {
+            const status = selectRequirementsStatus(store)
+            switch status {
+                case 'initial':
+                    const data = await this.fetch.requirements();
+                    return { type: ReqsAndDocsViewActions.REQUIREMENTS_LOADED, data }
+                case 'loading':
+                    return { type: ReqsAndDocsViewActions.REQUIREMENTS_ALREADY_LOADING }
+                case 'loaded':
+                    return { type: ReqAndDocsViewActions.REQUIREMENTS_ALREADY_LOADED }
+            }
+        }))
     )
 
     @Effect()
@@ -168,20 +179,37 @@ class ReqsAndDocsViewEffect {
 class AllDocsViewEffect {
     @Effect()
     this.actions.ofType(AllDocsViewActions.INIT_VIEW).pipe(
-        withLatestFrom(this.store)
+        withLatestFrom(this.store),
         switchMap(([_, store]) => {
-            const updateAction = await fetchReqsIfNeeded(store, this.fetch)
-            // :((((
-            // we need to dispatch the action from above, but don't want the second effect to be triggered on 
-            // every requirements loaded action, just from this one. thus, this action
-            // )))):
-            return [updateAction, { type: AllDocsViewActions.REQUIREMENTS_LOADED }]
-        }),
-        flatMap(i => i)
+            const status = selectRequirementsStatus(store)
+            switch status {
+                case 'initial':
+                    const data = await this.fetch.requirements();
+                    return { type: AllDocsViewActions.REQUIREMENTS_LOADED, data }
+                case 'loading':
+                    // what should we do here? watch for other actions?
+                    // or should we map all REQUIREMENTS_LOADED actions to separate action? 
+                    return this.actions.ofType(ReqsAndDocsViewActions.REQUIREMENTS_LOADED).pipe(
+                        first(),
+                        map(() => ({ type: AllDocsViewActions.REQUIREMENTS_ALREADY_LOADED })),
+                    )
+                    // may be wait until the store becomes good for us?
+                    // the last one, probably
+                    return this.store.pipe(
+                        map(selectRequirementsStatus)
+                        filter(status => status === 'loaded'),
+                        first(),
+                        map(() => ({ type: AllDocsViewActions.REQUIREMENTS_ALREADY_LOADED })),
+                    )
+
+                case 'loaded':
+                    return { type: AllDocsViewActions.REQUIREMENTS_ALREADY_LOADED }
+            }
+        })
     )
 
     @Effect()
-    this.actions.ofType(AllDocsViewActions.REQUIREMENTS_LOADED).pipe(
+    this.actions.ofType(AllDocsViewActions.REQUIREMENTS_LOADED, AllDocsViewActions.REQUIREMENTS_ALREADY_LOADED).pipe(
         withLatestFrom(this.store),
         switchMap((_, store) => {
             const requirements = selectRequirements(store)
@@ -194,18 +222,6 @@ class AllDocsViewEffect {
             return { type: AllDocsViewActions.DOCUMENTS_LOADED, data: documents }
         }),
     )
-}
-
-function fetchReqsIfNeeded(store, fetch) {
-    const status = selectRequirementsStatus(store)
-    switch (status) {
-        case 'initial':
-            return fetch.requirements().then(data => ({ type: RequirementsActions.REQUIREMENTS_LOADED, data }))
-        case 'loading':
-            return { type: RequirementsActions.REQUIREMENTS_ALREADY_LOADING }
-        case 'loaded':
-            return { type: RequirementsActions.REQUIREMENTS_ALREADY_LOADED }
-    }
 }
 
 function getDocsForReq(req: Requirement, docs: Document[]): Document[] {
