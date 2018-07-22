@@ -41,7 +41,7 @@ export class ReqsAndDocsViewStore {
     @observable documentsLoadingState = 'loading'
 
     @computed get requirements() {
-        return Object.values(this.requirementsStore)
+        return Object.values(this.requirementsStore.requirements)
     }
 
     @action async init() {

@@ -22,8 +22,9 @@ const reqsAndDocsReducer = (state = reqsAndDocsViewInitialState, action) => {
         case ReqsAndDocsViewActions.INIT_VIEW:
             return reqsAndDocsViewInitialState;
 
+        case ReqsAndDocsViewActions.ADD_DOCUMENT:
         case ReqsAndDocsViewActions.CURRENT_REQUIREMENT_CHANGED:
-            return { ...state, requirementsLoadingState: 'loading', documentsLoadingState: 'loading', currentReqId: action.id }
+            return { ...state, requirementsLoadingState: 'loading', currentReqId: action.id }
 
         case ReqsAndDocsViewActions.REQUIREMENTS_LOADED:
             return { ...state, requirementsLoadingState: 'loaded' }
@@ -31,9 +32,6 @@ const reqsAndDocsReducer = (state = reqsAndDocsViewInitialState, action) => {
         case ReqsAndDocsViewActions.DOCUMENTS_LOADED_ALREADY: 
         case ReqsAndDocsViewActions.DOCUMENTS_LOADED:
             return { ...state, documentsLoadingState: 'loaded' }
-
-        case ReqsAndDocsViewActions.ADD_DOCUMENT:
-            return { ...state, documentsLoadingState: 'loading' }
 
         case ReqsAndDocsViewActions.ADD_DOCUMENT_DONE:
             if (action.reqId === state.currentReqId) {
